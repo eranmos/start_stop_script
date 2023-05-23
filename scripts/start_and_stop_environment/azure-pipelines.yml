@@ -1,0 +1,68 @@
+---
+name: Azure_Pipeline-start-or-stop-AWS-Environment
+
+parameters:
+  - name: environment
+    displayName: Choose Environment
+    type: string
+    values:
+    - Branch
+    - PreProd
+    - UAT
+
+  - name: status
+    displayName: Choose stop/start the environment
+    type: string
+    values:
+    - start
+    - stop
+
+variables:
+  TAG_VALUE: ${{parameters.environment}}
+  ENVIRONMENT_STOP_START: ${{parameters.status}}
+
+pool:
+  vmImage: ubuntu-latest
+strategy:
+  matrix:
+    Python38:
+      python.version: '3.8'
+
+trigger: none
+
+steps:
+  - script: env
+  - task: AWSShellScript@1
+    displayName: 'Use Python $(python.version)'
+    inputs:
+      echo: true
+      versionSpec: '$(python.version)'
+      awsCredentials: 'VSTS_Service_User'
+      regionName: 'ap-southeast-2'
+      scriptType: 'inline'
+      disableAutoCwd: true
+
+  - task: AWSShellScript@1
+    displayName: 'Install python dependencies'
+    inputs:
+      echo: true
+      awsCredentials: 'VSTS_Service_User'
+      regionName: 'ap-southeast-2'
+      scriptType: 'inline'
+      disableAutoCwd: true
+      inlineScript: |
+        cd scripts/start_and_stop_environment/
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+
+  - task: AWSShellScript@1
+    displayName: 'Starting/Stopping environment'
+    inputs:
+      awsCredentials: 'VSTS_Service_User'
+      regionName: 'ap-southeast-2'
+      scriptType: 'inline'
+      disableAutoCwd: true
+      inlineScript: |
+          echo "Running command: python scripts/start_and_stop_environment/stop_start_script.py $(TAG_VALUE) $(ENVIRONMENT_STOP_START)"
+          python scripts/start_and_stop_environment/stop_start_script.py $(TAG_VALUE) $(ENVIRONMENT_STOP_START)
